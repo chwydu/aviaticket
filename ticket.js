@@ -1,127 +1,114 @@
-const Ticket = require("../models/ticket");
-const Polsovatel =require('../models/polsovatel') 
-// Create and Save a new Customer
-exports.create = (req, res) => {
-    if (!req.body) {
-        res.status(400).send({
-          message: "Content can not be empty!"
-        });
+const sql = require('../dbconfig')
+const Ticket = function(ticket) {
+  this.fullname = ticket.fullname
+    this.data_of_departure = ticket.data_of_departure
+    this.data_of_arrival = ticket.data_of_arrival
+    this.city_of_departure = ticket.city_of_departure
+    this.city_of_arrival =ticket.city_of_arrival 
+    this.boocking_code =ticket.boocking_code
+    this.cost =ticket.cost
+    this.place_number = ticket.place_number
+    this.luggage =ticket.luggage
+    this.place_class = ticket.place_class
+  };
+  Ticket.create = (newticket, result) => {
+    sql.query("INSERT INTO ticket SET ?", newticket, (err, res) => {
+      if (err) {
+        console.log("error: ", err);
+        result(err, null);
+        return;
       }
-    
-      // Create a Customer
-      const ticket = new Ticket({
-        fullname:req.polsovatel.fullname,
-        data_of_departure: req.body.data_of_departure,
-        data_of_arrival: req.body.data_of_arrival,
-        city_of_departure: req.body.city_of_departure,
-        city_of_arrival:req.body.city_of_arrival,
-        boocking_code:req.body.boocking_code,
-        cost:req.body.cost,
-        place_number:req.body.place_number,
-        luggage:req.body.luggage,
-        place_class:req.body.place_class
-
-      });
-    
-      // Save Customer in the database
-      Ticket.create(ticket, (err, data) => {
-        if (err)
-          res.status(500).send({
-            message:
-              err.message || "Some error occurred while creating the ticket."
-          });
-        else res.send(data);
-      });
-    };
   
-
-
-// Retrieve all Customers from the database.
-exports.findAll = (req, res) => {
-        Ticket.getAll((err, data) => {
-          if (err)
-            res.status(500).send({
-              message:
-                err.message || "Some error occurred while retrieving ticket."
-            });
-          else res.send(data);
-        });
-      };
+      console.log("created ticket: ", { id: res.insertId, ...newticket })
+      result(null, { id: res.insertId, ...newticket })
+    });
+  };
   
-
-// Find a single Customer with a customerId
-exports.findOne = (req, res) => {
-    Ticket.findById(req.params.ticketId, (err, data) => {
+  Ticket.findById = (ticketId, result) => {
+    sql.query(`SELECT * FROM ticket WHERE id = ${ticketId}`, (err, res) => {
+      if (err) {
+        console.log("error: ", err);
+        result(err, null);
+        return;
+      }
+  
+      if (res.length) {
+        console.log("found ticket: ", res[0]);
+        result(null, res[0]);
+        return;
+      }
+  
+      // not found Customer with the id
+      result({ kind: "not_found" }, null);
+    });
+  };
+  
+  Ticket.getAll = result => {
+    sql.query("SELECT * FROM ticket", (err, res) => {
+      if (err) {
+        console.log("error: ", err);
+        result(null, err);
+        return;
+      }
+  
+      console.log("ticket: ", res);
+      result(null, res);
+    });
+  };
+  
+  Ticket.updateById = (id, ticket, result) => {
+    sql.query(
+      "UPDATE ticket SET fullname  = ?, data_of_arrival = ?, boocking_code = ?, cost = ?, place_number = ?, luggage = ?, place_class = ?, data_of_departure = ?, city_of_deprture = ?,city_od_arrival = ? WHERE id = ?",
+      [ticket.fullname, ticket.boocking_code, ticket.cost, ticket.place_number, ticket.luggage, ticket.city_of_departure, ticket.city_of_arrival, ticket.data_of_arrival, ticket.data_of_departure, ticket.place_class, id],
+      (err, res) => {
         if (err) {
-          if (err.kind === "not_found") {
-            res.status(404).send({
-              message: `Not found ticket with id ${req.params.ticketId}.`
-            });
-          } else {
-            res.status(500).send({
-              message: "Error retrieving ticket with id " + req.params.ticketId
-            });
-          }
-        } else res.send(data);
-      });
-  
-};
-
-// Update a Customer identified by the customerId in the request
-exports.update = (req, res) => {
-    if (!req.body) {
-        res.status(400).send({
-          message: "Content can not be empty!"
-        });
-      }
-    
-      Ticket.updateById(
-        req.params.ticketId,
-        new ticket(req.body),
-        (err, data) => {
-          if (err) {
-            if (err.kind === "not_found") {
-              res.status(404).send({
-                message: `Not found ticket with id ${req.params.ticketId}.`
-              });
-            } else {
-              res.status(500).send({
-                message: "Error updating ticket with id " + req.params.ticketId
-              });
-            }
-          } else res.send(data);
+          console.log("error: ", err);
+          result(null, err);
+          return;
         }
-      );
   
-};
-
-// Delete a Customer with the specified customerId in the request
-exports.delete = (req, res) => {
-    Ticket.remove(req.params.ticketId, (err, data) => {
-        if (err) {
-          if (err.kind === "not_found") {
-            res.status(404).send({
-              message: `Not found ticket with id ${req.params.ticketId}.`
-            });
-          } else {
-            res.status(500).send({
-              message: "Could not delete ticket with id " + req.params.ticketId
-            });
-          }
-        } else res.send({ message: `ticket was deleted successfully!` });
-      });
+        if (res.affectedRows == 0) {
+          // not found Customer with the id
+          result({ kind: "not_found" }, null);
+          return;
+        }
   
-};
-
-// Delete all Customers from the database.
-exports.deleteAll = (req, res) => {
-    Ticket.removeAll((err, data) => {
-        if (err)
-          res.status(500).send({
-            message:
-              err.message || "Some error occurred while removing all customers."
-          });
-        else res.send({ message: `All Customers were deleted successfully!` });
-      });
+        console.log("updated ticket: ", { id: id, ...ticket });
+        result(null, { id: id, ...ticket });
+      }
+    );
+  };
   
-};
+  Ticket.remove = (id, result) => {
+    sql.query("DELETE FROM ticket WHERE id = ?", id, (err, res) => {
+      if (err) {
+        console.log("error: ", err);
+        result(null, err);
+        return;
+      }
+  
+      if (res.affectedRows == 0) {
+        // not found Customer with the id
+        result({ kind: "not_found" }, null);
+        return;
+      }
+  
+      console.log("deleted ticket with id: ", id);
+      result(null, res);
+    });
+  };
+  
+  Ticket.removeAll = result => {
+    sql.query("DELETE FROM ticket", (err, res) => {
+      if (err) {
+        console.log("error: ", err);
+        result(null, err);
+        return;
+      }
+  
+      console.log(`deleted ${res.affectedRows} ticket`);
+      result(null, res);
+    });
+  };
+  
+  module.exports = Ticket;

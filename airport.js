@@ -1,121 +1,109 @@
-const Airport = require("../models/airport");
-
-exports.create = (req, res) => {
-    if (!req.body) {
-        res.status(400).send({
-          message: "Content can not be empty!"
-        });
+const sql = require('../dbconfig')
+const Airport = function(airport) {
+    this.airport = airport.airport
+    this.index_airport = airport.index_airport
+    this.landingSite = airport.landingSite
+    this.arrivalLocations = airport.arrivalLocations
+    this.city =airport.city
+  };
+  Airport.create = (newairport, result) => {
+    sql.query("INSERT INTO airport SET ?", newairport, (err, res) => {
+      if (err) {
+        console.log("error: ", err);
+        result(err, null);
+        return;
       }
-    
-      
-      const airport = new Airport({
-        airport: req.body.airport,
-        index_airport:req.body.index_airport,
-        landingSite: req.body.landingSite,
-        arrivalLocations: req.body.arrivalLocations,
-        city:req.body.city
-
-        
-      });
-    
-      Airport.create(airport, (err, data) => {
-        if (err)
-          res.status(500).send({
-            message:
-              err.message || "Some error occurred while creating ."
-          });
-        else res.send(data);
-      });
-    };
   
-
-
-
-exports.findAll = (req, res) => {
-    Airport.getAll((err, data) => {
-          if (err)
-            res.status(500).send({
-              message:
-                err.message || "Some error"
-            });
-          else res.send(data);
-        });
-      };
+      console.log("created airport: ", { id: res.insertId, ...newairport })
+      result(null, { id: res.insertId, ...newairport })
+    });
+  };
   
-
-
-exports.findOne = (req, res) => {
-    Airport.findById(req.params.airportId, (err, data) => {
+  Airport.findById = (airportId, result) => {
+    sql.query(`SELECT * FROM airport WHERE id = ${airportId}`, (err, res) => {
+      if (err) {
+        console.log("error: ", err);
+        result(err, null);
+        return;
+      }
+  
+      if (res.length) {
+        console.log("found airport: ", res[0]);
+        result(null, res[0]);
+        return;
+      }
+  
+      // not found Customer with the id
+      result({ kind: "not_found" }, null);
+    });
+  };
+  
+  Airport.getAll = result => {
+    sql.query("SELECT * FROM airport", (err, res) => {
+      if (err) {
+        console.log("error: ", err);
+        result(null, err);
+        return;
+      }
+  
+      console.log("airport: ", res);
+      result(null, res);
+    });
+  };
+  
+  Airport.updateById = (id, airport, result) => {
+    sql.query(
+      "UPDATE airport SET airport  = ?, landingSite = ?, arrivalLocations = ?, city = ?,  WHERE id = ?",
+      [airport.airport, airport.landingSite, airport.arrivalLocations, airport.city, id],
+      (err, res) => {
         if (err) {
-          if (err.kind === "not_found") {
-            res.status(404).send({
-              message: `Not found Customer with id ${req.params.airportId}.`
-            });
-          } else {
-            res.status(500).send({
-              message: "Error retrieving Customer with id " + req.params.airportId
-            });
-          }
-        } else res.send(data);
-      });
-  
-};
-
-// Update a Customer identified by the customerId in the request
-exports.update = (req, res) => {
-    if (!req.body) {
-        res.status(400).send({
-          message: "Content can not be empty!"
-        });
-      }
-    
-      Airport.updateById(
-        req.params.airportId,
-        new ticket(req.body),
-        (err, data) => {
-          if (err) {
-            if (err.kind === "not_found") {
-              res.status(404).send({
-                message: `Not found Customer with id ${req.params.airportId}.`
-              });
-            } else {
-              res.status(500).send({
-                message: "Error updating Customer with id " + req.params.airportId
-              });
-            }
-          } else res.send(data);
+          console.log("error: ", err);
+          result(null, err);
+          return;
         }
-      );
   
-};
-
-// Delete a Customer with the specified customerId in the request
-exports.delete = (req, res) => {
-    Airport.remove(req.params.airportId, (err, _data) => {
-        if (err) {
-          if (err.kind === "not_found") {
-            res.status(404).send({
-              message: `Not found Customer with id ${req.params.airportId}.`
-            });
-          } else {
-            res.status(500).send({
-              message: "Could not delete Customer with id " + req.params.ticketId
-            });
-          }
-        } else res.send({ message: `Customer was deleted successfully!` });
-      });
+        if (res.affectedRows == 0) {
+          // not found Customer with the id
+          result({ kind: "not_found" }, null);
+          return;
+        }
   
-};
-
-// Delete all Customers from the database.
-exports.deleteAll = (_req, res) => {
-    Airport.removeAll((err, _data) => {
-        if (err)
-          res.status(500).send({
-            message:
-              err.message || "Some error occurred while removing all customers."
-          });
-        else res.send({ message: `All Customers were deleted successfully!` });
-      });
+        console.log("updated airport: ", { id: id, ...airport });
+        result(null, { id: id, ...airport });
+      }
+    );
+  };
   
-};
+  Airport.remove = (id, result) => {
+    sql.query("DELETE FROM airport WHERE id = ?", id, (err, res) => {
+      if (err) {
+        console.log("error: ", err);
+        result(null, err);
+        return;
+      }
+  
+      if (res.affectedRows == 0) {
+        // not found Customer with the id
+        result({ kind: "not_found" }, null);
+        return;
+      }
+  
+      console.log("deleted airport with id: ", id);
+      result(null, res);
+    });
+  };
+  
+  Airport.removeAll = result => {
+    sql.query("DELETE FROM airport", (err, res) => {
+      if (err) {
+        console.log("error: ", err);
+        result(null, err);
+        return;
+      }
+  
+      console.log(`deleted ${res.affectedRows} airport`);
+      result(null, res);
+    });
+  };
+  
+  module.exports = Airport;
